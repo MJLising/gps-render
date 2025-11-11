@@ -1,26 +1,23 @@
 #!/usr/bin/env python3
-"""server.py
-Render-friendly server: serves a Leaflet map and accepts POST updates at /updates.
-"""
-import os
-import logging
+"""server.py (fixed: template wrapped in {% raw %} to avoid Jinja parsing JS/CSS braces)"""
+import os, logging
 from datetime import datetime
 from flask import Flask, request, jsonify, render_template_string, abort
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s: %(message)s")
-
 app = Flask(__name__)
 
 store = {"lat": None, "lon": None, "mode": 0, "time": None, "updated_at": None}
 API_KEY = os.environ.get("GPS_API_KEY")
 
-# Template: wrap the JS part in a Jinja raw block so Jinja doesn't try to parse {s}, {z}, {x}, {y}, or JS objects
-HTML = """<!doctype html>
+# Wrap ENTIRE HTML in a raw block so Jinja won't try to interpret {s}, {z}, JS objects, or CSS braces.
+HTML = """{% raw %}
+<!doctype html>
 <html>
 <head><meta charset="utf-8"><title>GPS Map — live</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<style>html,body,#map{{height:100%;margin:0;padding:0}}#map{{height:100vh}}</style>
+<style>html,body,#map{height:100%;margin:0;padding:0}#map{height:100vh}</style>
 </head>
 <body>
 <div id="map"></div>
@@ -28,8 +25,6 @@ HTML = """<!doctype html>
 <b>Lat:</b> <span id="lat">n/a</span> &nbsp; <b>Lon:</b> <span id="lon">n/a</span> &nbsp; <small id="ts"></small>
 </div>
 
-<!-- Raw block starts: prevents Jinja from interpreting JS braces -->
-{% raw %}
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
   var map = L.map('map').setView([0,0],2);
@@ -65,12 +60,9 @@ HTML = """<!doctype html>
   poll();
   setInterval(poll, 2000);
 </script>
-{% endraw %}
-<!-- Raw block ends -->
-
 </body>
 </html>
-"""
+{% endraw %}"""
 
 @app.route("/")
 def index():
