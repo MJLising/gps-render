@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """server.py
-Render-friendly server: serves a Leaflet map and accepts POST updates at /update.
+Render-friendly server: serves a Leaflet map and accepts POST updates at /updates.
 """
 import os
 import logging
