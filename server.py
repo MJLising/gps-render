@@ -1,11 +1,6 @@
 #!/usr/bin/env python3
 """server.py
 Render-friendly server: serves a Leaflet map and accepts POST updates at /update.
-
-Usage:
-- Deploy this to Render (or any host) and set GPS_API_KEY env var (optional).
-- Your Pi should POST JSON to https://<your-app>/update with headers:
-    X-GPS-API-KEY: <your-key>
 """
 import os
 import logging
@@ -16,17 +11,10 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s: %(mes
 
 app = Flask(__name__)
 
-# In-memory store for latest position (ephemeral)
-store = {
-    "lat": None,
-    "lon": None,
-    "mode": 0,
-    "time": None,
-    "updated_at": None,
-}
+store = {"lat": None, "lon": None, "mode": 0, "time": None, "updated_at": None}
+API_KEY = os.environ.get("GPS_API_KEY")
 
-API_KEY = os.environ.get("GPS_API_KEY")  # set this in Render dashboard (optional)
-
+# Template: wrap the JS part in a Jinja raw block so Jinja doesn't try to parse {s}, {z}, {x}, {y}, or JS objects
 HTML = """<!doctype html>
 <html>
 <head><meta charset="utf-8"><title>GPS Map — live</title>
@@ -39,41 +27,47 @@ HTML = """<!doctype html>
 <div id="info" style="position:fixed;z-index:999;background:#fff;padding:6px;border-radius:6px;left:10px;top:10px;">
 <b>Lat:</b> <span id="lat">n/a</span> &nbsp; <b>Lon:</b> <span id="lon">n/a</span> &nbsp; <small id="ts"></small>
 </div>
+
+<!-- Raw block starts: prevents Jinja from interpreting JS braces -->
+{% raw %}
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
   var map = L.map('map').setView([0,0],2);
-  L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png', {{
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19, attribution: '© OpenStreetMap contributors'
-  }}).addTo(map);
+  }).addTo(map);
   var marker = null;
 
-  async function poll() {{
-    try {{
+  async function poll() {
+    try {
       const res = await fetch('/pos');
       const j = await res.json();
-      if (j.lat !== null && j.mode >= 2) {{
+      if (j.lat !== null && j.mode >= 2) {
         document.getElementById('lat').textContent = j.lat.toFixed(6);
         document.getElementById('lon').textContent = j.lon.toFixed(6);
         document.getElementById('ts').textContent = j.time ? '(' + j.time + ')' : '';
-        if (!marker) {{
+        if (!marker) {
           marker = L.marker([j.lat, j.lon]).addTo(map);
           map.setView([j.lat, j.lon], 16);
-        }} else {{
+        } else {
           marker.setLatLng([j.lat, j.lon]);
-        }}
-      }} else {{
+        }
+      } else {
         document.getElementById('lat').textContent = 'n/a';
         document.getElementById('lon').textContent = 'n/a';
         document.getElementById('ts').textContent = '';
-      }}
-    }} catch (e) {{
+      }
+    } catch (e) {
       console.error('poll error', e);
-    }}
-  }}
+    }
+  }
 
   poll();
   setInterval(poll, 2000);
 </script>
+{% endraw %}
+<!-- Raw block ends -->
+
 </body>
 </html>
 """
@@ -88,7 +82,6 @@ def pos():
 
 @app.route("/update", methods=["POST"])
 def update():
-    # optional API key check
     key = request.headers.get("X-GPS-API-KEY")
     if API_KEY and key != API_KEY:
         abort(403)
@@ -118,5 +111,4 @@ def health():
     return "ok", 200
 
 if __name__ == "__main__":
-    # local debug only
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8000)))
