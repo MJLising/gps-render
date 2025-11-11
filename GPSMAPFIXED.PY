@@ -12,8 +12,8 @@ import gps
 import logging
 
 # Configuration
-HOST = "0.0.0.0"     # "127.0.0.1" for localhost only, "0.0.0.0" for LAN access
-PORT = 8000
+HOST = "127.1.1.1"     # "127.0.0.1" for localhost only, "0.0.0.0" for LAN access
+PORT = 8081
 UPDATE_INTERVAL = 2.0  # seconds between front-end polls
 ZOOM = 16
 
